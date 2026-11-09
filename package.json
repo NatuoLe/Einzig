@@ -1,0 +1,10 @@
+{
+  "name": "einzig",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "install:vault": "node scripts/install-vault.cjs",
+    "test": "node --test"
+  }
+}

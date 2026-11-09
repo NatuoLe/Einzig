@@ -1,0 +1,29 @@
+.nav-folder-title.einzig-colored-folder > .nav-folder-title-content {
+  color: var(--einzig-folder-color);
+}
+
+.nav-folder-title.einzig-locked-folder .nav-folder-title-content::after {
+  content: "🔒";
+  margin-inline-start: 0.4em;
+  font-size: 0.8em;
+}
+
+.einzig-workspace-preview {
+  margin-block: 0.75em;
+  padding-inline: 0.75em;
+  border-inline-start: 2px solid var(--background-modifier-border);
+  overflow-wrap: anywhere;
+}
+
+.einzig-source-list {
+  max-height: min(13rem, 22vh);
+  overflow-y: auto;
+  margin-block-start: 0.5rem;
+}
+
+.einzig-source-list label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  overflow-wrap: anywhere;
+}

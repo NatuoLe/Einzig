@@ -1,0 +1,9 @@
+{
+  "id": "einzig",
+  "name": "Einzig",
+  "version": "0.1.0",
+  "minAppVersion": "1.10.0",
+  "description": "Organize vault folders and review traceable, versioned changes to design notes.",
+  "author": "Einzig",
+  "isDesktopOnly": true
+}
