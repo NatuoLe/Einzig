@@ -32,7 +32,7 @@ function loadSource(name, dependencies) {
 
 function testPlugin(integration = false) {
   const dependencies = {
-    obsidian: { Plugin: class {}, Notice: class {}, Modal: class {}, TFile, TFolder,
+    obsidian: { Plugin: class {}, Notice: class {}, Modal: class {}, ItemView: class {}, TFile, TFolder,
       parseYaml: JSON.parse, stringifyYaml: JSON.stringify },
     "./paths": paths,
     "./workspace": { isLocked: (settings, path) => settings.locks.some((folder) => paths.inside(path, folder)) },
@@ -48,6 +48,7 @@ function testPlugin(integration = false) {
     dependencies["./governance"] = loadSource("governance.js", dependencies);
     dependencies["./workflow"] = loadSource("workflow.js", dependencies);
   }
+  dependencies["./inline-review"] = loadSource("inline-review.js", dependencies);
   const Plugin = loadSource("main.js", dependencies);
   const plugin = new Plugin();
   plugin.settings = { zones: { ...paths.DEFAULT_ZONES }, locks: [], workspaceInitialized: true };
@@ -72,8 +73,49 @@ function testPlugin(integration = false) {
       process: async (file, update) => { file.text = update(file.text); },
     },
   };
-  return { plugin, files, workflow: dependencies["./workflow"] };
+  return { plugin, files, workflow: dependencies["./workflow"], inline: dependencies["./inline-review"] };
 }
+
+test("inline review rejects stale previews and archives only after all listed targets are approved", async () => {
+  const { plugin, files, inline } = testPlugin(true);
+  plugin.settings.inlineApprovals = {};
+  const design = "版本/MVP/设计文档/库存.md";
+  const implementation = "版本/MVP/开发文档/库存.md";
+  const note = (properties, body) => `---\n${JSON.stringify(properties)}\n---\n\n${body}\n`;
+  const link = (path) => `[[${path.slice(0, -3)}]]`;
+  const archivePath = "用户输入/已处理/MVP/库存需求.md";
+  files.get(sourcePath).text = note({ einzig_intake_closed: true, NeedReviewList: [link(design), link(implementation)],
+    einzig_archive_path: archivePath }, "库存需求");
+  const metadata = { einzig_status: "needs_review", version: "MVP", feature_key: "INVENTORY", sources: [link(sourcePath)] };
+  const designText = note(metadata, `设计 ${link(sourcePath)}`);
+  const implementationText = note(metadata, "实现");
+  files.set(design, new TFile(design, designText));
+  files.set(implementation, new TFile(implementation, implementationText));
+  plugin.app.vault.adapter = { exists: async path => files.has(path) };
+  plugin.app.fileManager = { renameFile: async (file, target) => {
+    files.delete(file.path);
+    file.path = target;
+    files.set(target, file);
+  } };
+  await assert.rejects(inline.approveInline(plugin, design, designText + "过期"), /重新预览/u);
+  await inline.approveInline(plugin, design, designText);
+  assert.match(files.get(design).text, /"einzig_status":"approved"/u);
+  assert.ok(files.has(sourcePath));
+  await inline.approveInline(plugin, implementation, implementationText);
+  assert.ok(files.has(archivePath));
+  assert.ok(files.get("用户输入/待整理") instanceof TFolder);
+  assert.equal(files.has(sourcePath), false);
+  const shortLink = "[[库存需求]]";
+  plugin.app.metadataCache.getFirstLinkpathDest = target => target === "库存需求" ? files.get(archivePath) : null;
+  const rewritten = { frontmatter: { ...metadata, einzig_status: "approved", sources: [shortLink] },
+    body: `设计 ${shortLink}\n` };
+  const approval = plugin.settings.inlineApprovals[design];
+  rewritten.frontmatter.Agent迭代状态 = "实施中";
+  rewritten.frontmatter.Agent迭代轮次 = 2;
+  assert.equal(await inline.matchesApproval(plugin, design, rewritten, approval), true);
+  assert.equal(await inline.matchesApproval(plugin, design, { ...rewritten, body: rewritten.body + "新规则" }, approval), false);
+  assert.deepEqual(inline.diffLines("保留\n旧行", "保留\n新行"), [[" ", "保留"], ["-", "旧行"], ["+", "新行"]]);
+});
 
 function review(overrides) {
   return {

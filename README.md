@@ -23,14 +23,26 @@ npm run install:vault -- "F:\path\to\vault"
 
 ## 接入工作区
 
-安装脚本会把 Agent 协作 skill 放到 Vault 的 `skills/einzig-doc-governance/SKILL.md`。手动解压安装时，从安装包复制同名文件夹到 Vault 的 `skills/`。在 Vault 根目录 `AGENTS.md` 加一条链接，提示 Agent 处理设计文档时先读该 skill 和项目规则。如果 Agent 没有自动读到该入口，在任务开头把 Vault 路径和 `AGENTS.md` 路径交给它。
+安装脚本会把 `einzig-doc-governance` 和 `einzig-design-docs` 放到 Vault 的 `skills/`。手动解压安装时，把这两个目录复制到同一位置。在 Vault 根目录的 `AGENTS.md` 链接两份 skill，提示 Agent 先读项目规则和任务相关的 skill。派工时也可以直接附上 `AGENTS.md` 的路径。
 
 1. 运行「Einzig: 初始化或配置工作区」。预览现有路径和需要新建的目录，然后点「应用工作区」。
-2. MINISQUAD 可使用默认映射，用户继续自由写入 `用户输入/待整理`。玩法、进行中、工程和归档位于各自的 `版本/Vx` 下，共享工程位于 `共享工程`。启用后的玩法直接编辑会登记为检测到的变更，作者标为未知。
+2. MINISQUAD 可使用默认映射，用户继续自由写入 `用户输入/待整理`。玩法、进行中、工程和归档位于各自的 `版本/Vx` 下，共享工程位于 `共享工程`。统一修改表记录 Einzig 审批通过的变更。
 3. 在文件列表右键文件夹，设置颜色或上锁。颜色可在子目录覆盖，锁覆盖后代目录。锁防止 Obsidian 内误编辑，并约束 Einzig 自身写入。可在 Einzig 设置中暂停目录锁，保留锁列表。其他进程仍有各自的文件系统权限。
 4. 运行「Einzig: 巡检文档格式和权威冲突」查看未纳管笔记、格式错误和重复权威。
 
-## 需求演进
+## FarpostInn 原地审核
+
+FarpostInn 已启用 `inlineReview` 和 `agentDevelopment`。工程入口的 `AGENTS.md` 指向 Vault 的协作规则。开始任务和交接时先读 Vault 入口。设计稿按功能定位、操作逻辑、系统规则、Mermaid 流程图、验收与待决策组织。 [设计文档 skill](skills/einzig-design-docs/SKILL.md)
+
+1. 用户在 `用户输入/待整理` 写需求。Agent 确定版本和责任文档，优先更新同主题现有页。设计写入 `版本/<版本>/设计文档/<功能>/Desgin-<功能>-<主题>.md`，开发写入 `版本/<版本>/开发文档/<功能>/Dev-<功能>-<主题>.md`。保留 FarpostInn 的 `Desgin` 拼写及已有功能 Key。
+2. 落地时同时维护 `版本/<版本>/开发文档/Agent开发文档/YYYY-MM-DD/Dev-Agent-<主题>.md`。写清关联设计、实现范围、实施顺序和验收。多人实施时明确接口责任、文件归属、独立验收和集成方。交付摘要附开发计划链接。
+3. 新建或修改的方案用 `einzig_status: needs_review`，并填写 `feature_key`、`version` 和 `sources`。在原始输入的 `NeedReviewList` 列出完整目标双链，含 Agent 开发计划。用 `einzig_archive_path` 指定 `已处理` 内目标位置，清单准备齐全后标记 `einzig_intake_closed: true`。
+4. 待审文档与父目录标红。右侧分栏按上一次批准快照显示逐行差异，使用上下箭头跳到改动块。在文档右上角批准或切回待审核。文件夹右键可逐篇校验并批量批准其下所有待审文档。
+5. 清单中的文档当前版本全部获批且对应原始输入当前正文后，Einzig 自动归档原文。目录锁、同名冲突或正文变化会阻止归档。可用「重试已批准输入归档」重试。归档导致的来源链接改写会核对原文指纹和旧批准快照。
+
+开发文档使用布尔属性 `完成开发` 和 `完成测试`。未开发完成标红，开发完成待测试标黄，父目录汇总且红色优先。Agent 计划另用 `Agent迭代状态` 和 `Agent迭代轮次`。从第 1 轮待实施开始，按证据更新为实施中、待测试或已完成，阻塞时记录解除条件，历史证据不足时标待核对。返工或开启下一轮实施时递增轮次。进度字段更新保留文档审核状态。 [协作治理 skill](skills/einzig-doc-governance/SKILL.md)
+
+## JSON 提案工作流
 
 1. 打开一篇相关笔记，运行「Einzig: 生成 Agent 整理请求」，指定版本、功能 Key、功能链路、适用模式和标签。主题已有旧玩法页时，可以选它作为纳管目标。选择关联来源后，将生成的请求交给你正在使用的 Agent。
 2. 运行「Einzig: 导入 Agent 提案」，粘贴 Agent 返回的 JSON。插件校验原文引句和文件指纹，然后更新该功能的演进草稿。重复导入同一提案会复用草稿。

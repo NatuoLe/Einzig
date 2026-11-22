@@ -27,3 +27,53 @@
   gap: 0.35rem;
   overflow-wrap: anywhere;
 }
+.einzig-review-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 0.8rem;
+  flex-shrink: 0;
+}
+
+.einzig-needs-review, .einzig-needs-review .nav-file-title-content {
+  color: var(--text-error);
+}
+
+.einzig-review-diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.einzig-added { background: color-mix(in srgb, var(--color-green) 17%, transparent); }
+.einzig-removed { background: color-mix(in srgb, var(--color-red) 17%, transparent); }
+.einzig-review-action {
+  margin-inline-start: auto;
+}
+.nav-folder-title.einzig-folder-needs-review > .nav-folder-title-content::before {
+  content: "NeedReview";
+  color: var(--text-error);
+  margin-inline-end: 0.45em;
+  font-size: 0.8em;
+}
+:is(.nav-file-title, .nav-folder-title).einzig-dev-red > :is(.nav-file-title-content, .nav-folder-title-content) {
+  color: var(--text-error);
+}
+
+:is(.nav-file-title, .nav-folder-title).einzig-dev-yellow > :is(.nav-file-title-content, .nav-folder-title-content) {
+  color: var(--color-yellow);
+}
+.einzig-diff-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.35rem;
+  background: var(--background-primary);
+}
+
+.einzig-diff-current {
+  outline: 1px solid var(--interactive-accent);
+  outline-offset: -1px;
+}

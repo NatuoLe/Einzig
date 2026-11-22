@@ -13,3 +13,11 @@ description: Follow a vault's Einzig document rules when organizing Obsidian inp
 - 正式变更通过 Einzig 审核提交。尊重锁定范围，外部 Agent 写磁盘也不得绕过。功能 Key 由用户或既有索引确定，文档 ID 和修改 Key 由插件计算。改标题或移动文件时保留既有身份。
 
 收到 Einzig 生成的整理请求时，按请求返回 JSON。保留版本、功能 Key、范围、目标路径和来源 SHA-256，移除返回值中的原文快照字段。每条差异保留稳定条款 ID、逐字引句和可核对的锚点。替代项同时给出目标正文中唯一匹配的旧段落，以及注明适用模式的新规则。先返回提案，由用户在 Obsidian 里逐条审核。未决项继续保留在草稿。
+
+## 使用原地审核的 Vault
+
+在 Vault 明确启用原地审核时，按项目入口直接编辑目标版本已有设计或开发文档，并设置 `einzig_status: needs_review`。保留功能 Key，填写版本和完整路径来源双链。写设计时读取[设计文档 skill](../einzig-design-docs/SKILL.md)。
+
+落地交付包含 Agent 开发计划。写清实现范围、步骤、接口责任和验收依据。维护完成开发、完成测试、迭代状态和轮次。交接记录本轮结果、证据和下一步。
+
+从待整理接单时，将全部关联文档和 Agent 开发计划列入 `NeedReviewList`，填写已处理目录内的 `einzig_archive_path`。核对清单齐全后设 `einzig_intake_closed: true`。Einzig 按当前批准快照执行归档。

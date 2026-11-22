@@ -190,6 +190,21 @@ class WorkspaceSettingsTab extends PluginSettingTab {
     for (const [key, label] of Object.entries(ZONE_LABELS)) {
       new Setting(this.containerEl).setName(label).setDesc(this.workspacePlugin.settings.zones[key] || "未配置");
     }
+    if (this.workspacePlugin.settings.inlineReview) {
+      new Setting(this.containerEl).setName("Agent 开发文档")
+        .setDesc("根据完成开发和完成测试，标记开发文档及其父目录。")
+        .addToggle(toggle => toggle.setValue(Boolean(this.workspacePlugin.settings.agentDevelopment))
+          .onChange(async (enabled) => {
+            const plugin = this.workspacePlugin;
+            plugin.settings.agentDevelopment = enabled;
+            try {
+              await plugin.saveSettings();
+              plugin.refreshInlineReview?.();
+            } catch (error) {
+              showError(error);
+            }
+          }));
+    }
     new Setting(this.containerEl).setName("锁定目录").setHeading();
     this.containerEl.createEl("p", { text: "锁定包括子目录，用于防止在 Obsidian 误改笔记，并阻止 Einzig 写入。可从文件夹右键菜单管理。" });
     new Setting(this.containerEl).setName("暂停目录锁")

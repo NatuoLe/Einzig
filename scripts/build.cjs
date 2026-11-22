@@ -32,7 +32,5 @@ fs.mkdirSync(output, { recursive: true });
 fs.writeFileSync(path.join(output, "main.js"), bundle);
 fs.copyFileSync(path.join(root, "manifest.json"), path.join(output, "manifest.json"));
 fs.copyFileSync(path.join(root, "workspace.css"), path.join(output, "styles.css"));
-const skillPath = path.join("skills", "einzig-doc-governance", "SKILL.md");
-fs.mkdirSync(path.dirname(path.join(output, skillPath)), { recursive: true });
-fs.copyFileSync(path.join(root, skillPath), path.join(output, skillPath));
+fs.cpSync(path.join(root, "skills"), path.join(output, "skills"), { recursive: true });
 console.log("Built dist/einzig");

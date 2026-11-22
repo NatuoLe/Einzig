@@ -9,13 +9,15 @@ function install(vault, config = ".obsidian") {
   const files = ["manifest.json", "main.js", "styles.css"];
   const contents = files.map((file) => fs.readFileSync(path.join(source, file)));
   const root = fs.realpathSync(vault);
-  const skillPath = path.join("skills", "einzig-doc-governance", "SKILL.md");
-  const skill = fs.readFileSync(path.join(source, skillPath));
+  const skills = ["einzig-doc-governance", "einzig-design-docs"].map((name) => {
+    const folder = path.join("skills", name);
+    return { folder, content: fs.readFileSync(path.join(source, folder, "SKILL.md")) };
+  });
   const configuration = path.join(root, config);
   if (!fs.lstatSync(configuration).isDirectory()) throw new Error("Select an existing Obsidian vault.");
   const plugins = path.join(configuration, "plugins");
   const destination = path.join(plugins, "einzig");
-  for (const folder of [plugins, destination, path.join(root, "skills"), path.dirname(path.join(root, skillPath))]) {
+  for (const folder of [plugins, destination, path.join(root, "skills"), ...skills.map(skill => path.join(root, skill.folder))]) {
     if (!fs.existsSync(folder)) fs.mkdirSync(folder);
     if (!fs.lstatSync(folder).isDirectory()) throw new Error(`Not a local directory: ${folder}`);
   }
@@ -27,11 +29,13 @@ function install(vault, config = ".obsidian") {
     }
   }
   for (const [index, file] of files.entries()) fs.writeFileSync(path.join(destination, file), contents[index]);
-  try {
-    fs.writeFileSync(path.join(root, skillPath), skill, { flag: "wx" });
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-    console.log("Kept the existing vault skill. Compare it with the bundled skill when upgrading.");
+  for (const skill of skills) {
+    try {
+      fs.writeFileSync(path.join(root, skill.folder, "SKILL.md"), skill.content, { flag: "wx" });
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      console.log(`Kept the existing vault skill in ${skill.folder}.`);
+    }
   }
   return destination;
 }

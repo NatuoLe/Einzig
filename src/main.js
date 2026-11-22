@@ -1,11 +1,12 @@
 const { Notice, Plugin, TFile, TFolder } = require("obsidian");
-const { digest, stableKey, recordTitle } = require("./identity");
+const { digest, recordTitle } = require("./identity");
 const { DEFAULT_ZONES, safePath, inside, versionLocation, validateZones } = require("./paths");
 const { setupWorkspace, isLocked } = require("./workspace");
 const {
   setupGovernance, parseDocument, validateManagedDocument, renderChangeRecord, renderChangeBase,
 } = require("./governance");
 const { setupWorkflow } = require("./workflow");
+const { setupInlineReview } = require("./inline-review");
 
 function localDate() {
   const now = new Date();
@@ -24,13 +25,16 @@ module.exports = class Einzig extends Plugin {
     };
     this.operations = Promise.resolve();
     this.saves = Promise.resolve();
-    this.observed = new Map();
-    this.ownedWrites = new Map();
-    this.observers = new Map();
     this.unloaded = false;
     setupWorkspace(this);
     setupGovernance(this);
     setupWorkflow(this);
+    setupInlineReview(this);
+    this.addCommand({
+      id: "check-fast-note-sync",
+      name: "检测 Fast Note Sync",
+      callback: () => this.runCommand(() => this.checkFastNoteSync(), true),
+    });
     this.addCommand({
       id: "reconcile-review",
       name: "核对中断的审批写入",
@@ -38,7 +42,6 @@ module.exports = class Einzig extends Plugin {
     });
     this.app.workspace.onLayoutReady(() => {
       if (this.unloaded) return;
-      this.startObserver();
       if (this.settings.pendingReview) {
         new Notice("Einzig 有一笔待核对的审批写入。请运行「核对中断的审批写入」。", 9000);
       }
@@ -47,7 +50,6 @@ module.exports = class Einzig extends Plugin {
 
   onunload() {
     this.unloaded = true;
-    for (const timer of this.observers.values()) clearTimeout(timer);
   }
 
   runCommand(operation, reportSuccess = false) {
@@ -102,28 +104,16 @@ module.exports = class Einzig extends Plugin {
     if (expected === null && !file) {
       await this.ensureFolder(path.slice(0, path.lastIndexOf("/")));
       this.assertWritable(path);
-      this.markOwnedWrite(path, text);
-      try {
-        return await vault.create(path, text);
-      } catch (error) {
-        this.ownedWrites.delete(path);
-        throw error;
-      }
+      return vault.create(path, text);
     }
     if (!(file instanceof TFile) || expected === null) throw new Error(`文件在预览后变动：${path}`);
     if (file.path !== path) throw new Error(`路径大小写与库中实际路径不一致：${path}`);
     if (text === expected && await vault.read(file) === expected) return file;
-    this.markOwnedWrite(path, text);
-    try {
-      await vault.process(file, (current) => {
-        this.assertWritable(file.path);
-        if (file.path !== path || current !== expected) throw new Error(`文件在预览后变动：${path}`);
-        return text;
-      });
-    } catch (error) {
-      this.ownedWrites.delete(path);
-      throw error;
-    }
+    await vault.process(file, (current) => {
+      this.assertWritable(file.path);
+      if (file.path !== path || current !== expected) throw new Error(`文件在预览后变动：${path}`);
+      return text;
+    });
     return file;
   }
 
@@ -290,68 +280,14 @@ module.exports = class Einzig extends Plugin {
     throw new Error(`目标已偏离审批前后的两个版本，请人工核对：${pending.targetPath}`);
   }
 
-  startObserver() {
-    const vault = this.app.vault;
-    for (const event of ["create", "modify"]) {
-      this.registerEvent(vault.on(event, (file) => {
-        if (file instanceof TFile && file.extension === "md") this.queueObservation(file.path, event);
-      }));
-    }
+  async checkFastNoteSync() {
+    const { adapter, configDir } = this.app.vault;
+    const manifest = `${configDir}/plugins/fast-note-sync/manifest.json`;
+    if (!await adapter.exists(manifest)) return "Fast Note Sync 尚未安装。";
+    const enabledFile = `${configDir}/community-plugins.json`;
+    const enabled = await adapter.exists(enabledFile) ? JSON.parse(await adapter.read(enabledFile)) : [];
+    if (!Array.isArray(enabled) || !enabled.includes("fast-note-sync")) return "Fast Note Sync 已安装，尚未加入启用列表。";
+    return "Fast Note Sync 已加入启用列表。实际连接与同步状态请查看 Fast Note Sync 面板。";
   }
 
-  markOwnedWrite(path, text) {
-    if (versionLocation(path, this.settings.zones.versions)?.section === "玩法") {
-      this.ownedWrites.set(path, digest(text));
-    }
-  }
-
-  queueObservation(path, event) {
-    if (!this.settings.workspaceInitialized) return;
-    const zones = this.settings.zones;
-    const intake = inside(path, zones.inbox);
-    const version = versionLocation(path, zones.versions);
-    if (!intake && version?.section !== "玩法") return;
-    clearTimeout(this.observers.get(path));
-    this.observers.set(path, setTimeout(() => {
-      this.observers.delete(path);
-      if (!this.unloaded) this.runCommand(() => this.exclusive(() => this.recordObservation(path, event)));
-    }, 1200));
-  }
-
-  async recordObservation(path, event) {
-    const text = await this.readText(path);
-    if (text === null) return;
-    const hash = digest(text);
-    const own = this.ownedWrites.get(path);
-    this.ownedWrites.delete(path);
-    if (own === hash) {
-      this.observed.set(path, hash);
-      return;
-    }
-    if (this.observed.get(path) === hash) return;
-    const zones = this.settings.zones;
-    const intake = inside(path, zones.inbox);
-    const location = versionLocation(path, zones.versions);
-    let frontmatter;
-    try {
-      ({ frontmatter } = parseDocument(text));
-    } catch {
-      frontmatter = {};
-    }
-    const date = localDate();
-    await this.ensureChangeBase();
-    await this.writeRecord({
-      change_id: stableKey("O", path, hash, new Date().toISOString()),
-      title: `${intake ? "登记输入" : "检测到玩法变更"} · ${path.split("/").at(-1).slice(0, -3)}`,
-      date,
-      feature_key: typeof frontmatter.feature_key === "string" ? frontmatter.feature_key : "待归属",
-      version: location?.version || "待确认",
-      sources: [`[[${path.slice(0, -3)}]]`],
-      documents: [],
-      summary: intake ? "待整理输入有变动" : "检测到玩法分册直接修改",
-      status: "observed",
-      result: `${event === "create" ? "新增" : "修改"}，作者未核实，SHA-256 ${hash}`,
-    });
-    this.observed.set(path, hash);
-  }
 };
